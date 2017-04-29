@@ -1,7 +1,3 @@
-//
-// Created by cdhamannavar on 4/29/2017.
-//
-
 /* mbed Microcontroller Library
  * Copyright (c) 2006-2015 ARM Limited
  *
@@ -19,13 +15,9 @@
  */
 
 #include "mbed.h"
-//#include "toolchain.h"
+#include "toolchain.h"
 #include "ble/BLE.h"
-//#include "TMP_nrf51/TMP_nrf51.h"
-
-const static char     DEVICE_NAME[]        = "BSL00LR1"; // change this
-static const uint16_t uuid16_list[]        = {0xFFFF}; //Custom UUID, FFFF is reserved for development
-uint8_t AdvData[5] = {0x00,0x00,0x00,0x00,0x00};
+#include "TMP_nrf51/TMP_nrf51.h"
 
 DigitalOut alivenessLED(LED1, 1);
 Ticker     ticker;
@@ -40,21 +32,36 @@ void periodicCallback(void)
  */
 void advertisementCallback(const Gap::AdvertisementCallbackParams_t *params)
 {
-    printf("SCANNING..%d",params->advertisingDataLen);
-    int n1=params->advertisingDataLen;
-    //printf("D1..%d",params->rssi);
-    //printf("D2..%d:::",params->isScanResponse);
-    for (int i=0; i<=n1; i++){
-        printf("[%02x], ", params->advertisingData[i]);
+    struct AdvertisingData_t {
+        uint8_t                        length; /* doesn't include itself */
+        GapAdvertisingData::DataType_t dataType;
+        uint8_t                        data[0];
+    } PACKED;
+
+    struct ApplicationData_t {
+        uint16_t applicationSpecificId;             /* An ID used to identify temperature value
+                                                       in the manufacture specific AD data field */
+        TMP_nrf51::TempSensorValue_t tmpSensorValue; /* User defined application data */
+    } PACKED;
+
+    static const uint16_t APP_SPECIFIC_ID_TEST = 0xFEFE;
+
+    /* Search for the manufacturer specific data with matching application-ID */
+    AdvertisingData_t *pAdvData;
+    size_t index = 0;
+    while (index < params->advertisingDataLen) {
+        pAdvData = (AdvertisingData_t *)&params->advertisingData[index];
+        if (pAdvData->dataType == GapAdvertisingData::MANUFACTURER_SPECIFIC_DATA) {
+            ApplicationData_t *pAppData = (ApplicationData_t *)pAdvData->data;
+            if (pAppData->applicationSpecificId == APP_SPECIFIC_ID_TEST) {
+                /* dump information on the console. */
+                printf("From [%02x %02x %02x], ", params->peerAddr[2], params->peerAddr[1], params->peerAddr[0]);
+                printf("Temp is %f\r\n", (TMP_nrf51::TempSensorValue_t)pAppData->tmpSensorValue);
+                break;
+            }
+        }
+        index += (pAdvData->length + 1);
     }
-    if (params->advertisingData[15]==0x01)
-    {
-        AdvData[2]=0x01;
-        AdvData[3]=0x01;
-        AdvData[4]=0x01;
-        printf("----on---------on----------on----");
-    }
-    printf("-------------------------on-------------------------");
 }
 
 /**
@@ -85,36 +92,20 @@ void bleInitComplete(BLE::InitializationCompleteCallbackContext *params)
     }
 
     /* Setup and start scanning */
-    ble.gap().setScanParams(2000 /* scan interval */, 2000 /* scan window */);
-}
-
-// Restart Advertising PayLoad
-void resetAdvertisingBLE()
-{
-
-    BLE::Instance(BLE::DEFAULT_INSTANCE).gap().stopAdvertising();
-    BLE::Instance(BLE::DEFAULT_INSTANCE).gap().clearAdvertisingPayload();
-    BLE::Instance(BLE::DEFAULT_INSTANCE).gap().accumulateAdvertisingPayload(GapAdvertisingData::COMPLETE_LOCAL_NAME, (uint8_t *)DEVICE_NAME, sizeof(DEVICE_NAME));
-    BLE::Instance(BLE::DEFAULT_INSTANCE).gap().accumulateAdvertisingPayload(GapAdvertisingData::MANUFACTURER_SPECIFIC_DATA, (uint8_t *)&AdvData, sizeof(AdvData)); // Set data
-    BLE::Instance(BLE::DEFAULT_INSTANCE).gap().accumulateAdvertisingPayload(GapAdvertisingData::COMPLETE_LIST_16BIT_SERVICE_IDS, (uint8_t *)uuid16_list, sizeof(uuid16_list)); // UUID's broadcast in advertising packet
-    BLE::Instance(BLE::DEFAULT_INSTANCE).gap().setAdvertisingInterval(300);
-    BLE::Instance(BLE::DEFAULT_INSTANCE).startAdvertising();
+    ble.gap().setScanParams(1800 /* scan interval */, 1500 /* scan window */);
+    ble.gap().startScan(advertisementCallback);
 }
 
 int main(void)
 {
-    printf("BLE Scanning Updated......\n");
-    //ticker.attach(periodicCallback, 1);  /* trigger sensor polling every 2 seconds */
+    ticker.attach(periodicCallback, 1);  /* trigger sensor polling every 2 seconds */
+
     BLE &ble = BLE::Instance();
     ble.init(bleInitComplete);
+
     while (true) {
         ble.waitForEvent();
-        ble.gap().startScan(advertisementCallback);
-        //wait(3);
-        //ble.gap().stopScan();
-        //wait(2);
-        //resetAdvertisingBLE();
-        //wait(2);
-
     }
 }
+ 
+            
