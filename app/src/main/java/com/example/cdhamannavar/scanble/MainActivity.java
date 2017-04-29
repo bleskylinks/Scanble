@@ -36,7 +36,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import android.os.Vibrator;
-
+//Get this update
 public class MainActivity extends Activity {
 
     private BluetoothAdapter mBluetoothAdapter;
