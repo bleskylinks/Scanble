@@ -30,14 +30,13 @@ import android.view.MenuItem;
 import android.view.View;
 import android.widget.TextView;
 import android.widget.Toast;
-import com.example.*;
+import android.kafka.clients.consumer.*;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import android.os.Vibrator;
 
-//Main Activity ....
 public class MainActivity extends Activity {
 
     private BluetoothAdapter mBluetoothAdapter;
@@ -148,10 +147,9 @@ public class MainActivity extends Activity {
     public void startscand(View view) {
         Log.i("TAG1", "Start Scanning");
         final BluetoothLeScanner scanner = mBluetoothAdapter.getBluetoothLeScanner();
-        ParcelUuid Service_UUID = ParcelUuid.fromString("0000b81d-0000-1000-8000-00805f9b34fb");
+        // ParcelUuid Service_UUID = ParcelUuid.fromString("0000b81d-0000-1000-8000-00805f9b34fb");
         // ParcelUuid Service_UUID = ParcelUuid.fromString("00001800-0000-1000-8000-00805f9b34fb");
         ScanFilter beaconFilter = new ScanFilter.Builder()
-                .setServiceUuid(Service_UUID)
                 .build();
         ArrayList<ScanFilter> filters = new ArrayList<ScanFilter>();
         filters.add(beaconFilter);
